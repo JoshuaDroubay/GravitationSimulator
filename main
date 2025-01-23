@@ -1,0 +1,243 @@
+#include <iostream>
+#include "mass.h"
+#include <iostream>
+#include <fstream>
+#include <string>
+
+using std::cout, std::cin, std::endl, std::stod, std::ofstream;
+
+int main() {
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int numberOfObjects;
+    int stringPos;
+    int numIterations;
+    int numPoints;
+    int pointSpacing;
+    double tempDouble;
+    double simDuration;
+    double iterDuration;
+    double timeElapsed;
+    double maxGravity;
+    string tempString;
+    string tempString2;
+    vector<double> tempMatrix = {0, 0, 0};
+    vector<double> listX = {};
+    vector<double> listY = {};
+    vector<double> listZ = {};
+    vector<double> massKGList = {};
+    vector<double> totalMomentum = {0, 0, 0};
+    vector<double> negVelocity = {0, 0, 0};
+    vector<mass> massList = {};
+    vector<vector<double>> initialPositionList = {};
+    vector<vector<double>> initialVelocityList = {};
+    vector<vector<double>> pathListX = {};
+    vector<vector<double>> pathListY = {};
+    vector<vector<double>> pathListZ = {};
+    vector<string> objectNameList = {};
+    ofstream outFileX;
+    ofstream outFileY;
+    ofstream outFileZ;
+
+    cout << "Enter the number of objects you would like to run in the simulation: " << endl;
+    cin  >> numberOfObjects;
+    cout << endl;
+
+    for (i = 0; i < numberOfObjects; ++i) {
+        cout << "Enter the name of object " << i + 1 << ": " << endl;
+        cin  >> tempString;
+        objectNameList.push_back(tempString);
+        cout << endl;
+
+        cout << "Enter the mass of " << tempString << ": " << endl;
+        cin  >> tempDouble;
+        massKGList.push_back(tempDouble);
+        cout << endl;
+
+        cout << "Enter the position of " << tempString << " in 3 coordinates:" << endl;
+        cin  >> tempMatrix.at(0);
+        cin  >> tempMatrix.at(1);
+        cin  >> tempMatrix.at(2);
+        initialPositionList.push_back(tempMatrix);
+        cout << endl;
+
+        cout << "Enter the initial velocity of " << tempString << " in 3 coordinates:" << endl;
+        cin  >> tempMatrix.at(0);
+        cin  >> tempMatrix.at(1);
+        cin  >> tempMatrix.at(2);
+        initialVelocityList.push_back(tempMatrix);
+        cout << endl;
+    }
+
+    for (i = 0; i < numberOfObjects; ++i) {
+        for (j = 0; j < 3; ++j) {
+            totalMomentum.at(j) = totalMomentum.at(j) +
+                                     (massKGList.at(i) * initialVelocityList.at(i).at(j));
+        }
+    }
+
+    cout << "The total momentum of the system is: [" << totalMomentum.at(0) <<
+            ", " << totalMomentum.at(1) << ", " << totalMomentum.at(2) << "]." << endl;
+    cout << "Translate reference frame to nullify the total momentum? (type \"yes\" or \"no\"): " << endl;
+    cin  >> tempString;
+    cout << endl;
+
+    if (tempString == "yes") {
+
+        tempDouble = 0;
+        for (i = 0; i < numberOfObjects; ++i) {
+            tempDouble = tempDouble + massKGList.at(i);
+        }
+
+        for (i = 0; i < 3; ++i) {
+            negVelocity.at(i) = totalMomentum.at(i) / tempDouble;
+        }
+
+        for (i = 0; i < numberOfObjects; ++i) {
+            for (j = 0; j < 3; ++j) {
+                initialVelocityList.at(i).at(j) = initialVelocityList.at(i).at(j) - negVelocity.at(j);
+            }
+        }
+    }
+
+    cout << "How long would you like the simulation to run? (append values with \"seconds\", \"minutes\"," << endl <<
+            " \"hours\", \"days\" or \"years\". Ex: \"20 years\"): "
+            << endl;
+    getline(cin, tempString);
+    getline(cin, tempString);
+
+    tempString2 = "";
+    stringPos = tempString.find_first_of(" ", 0);
+    for (i = stringPos + 1; i < tempString.size(); ++i) {
+        tempString2.push_back(tempString.at(i));
+    }
+
+    for (i = tempString.size(); i > stringPos; --i) {
+        tempString.pop_back();
+    }
+
+    simDuration = stod(tempString);
+
+    if (tempString2 == "minutes") {
+        simDuration = simDuration * 60;
+    }
+
+    else if (tempString2 == "hours") {
+        simDuration = simDuration * 60 * 60;
+    }
+
+    else if (tempString2 == "days") {
+        simDuration = simDuration * 60 * 60 * 24;
+    }
+
+    else if (tempString2 == "years") {
+        simDuration = simDuration * 60 * 60 * 24 * 365;
+    }
+
+    else if (tempString2 != "seconds") {
+        throw std::invalid_argument("ERROR: INVALID UNIT OF TIME");
+    }
+
+    cout << endl;
+    cout << "Enter the number of iterations: " << endl;
+    cin  >> numIterations;
+    cout << endl;
+
+    cout << "Enter the number of points you would like to plot: " << endl;
+    cin  >> numPoints;
+    cout << endl;
+
+    pointSpacing = numIterations / numPoints;
+    while (numIterations % pointSpacing != 0) {
+        numIterations = numIterations + 1;
+    }
+    numIterations = numIterations + 1;
+
+    iterDuration = simDuration / numIterations;
+
+    pathListX.resize(numberOfObjects);
+    pathListY.resize(numberOfObjects);
+    pathListZ.resize(numberOfObjects);
+
+    for (i = 0; i < numberOfObjects; ++i) {
+        mass newMass(objectNameList.at(i), massKGList.at(i), initialPositionList.at(i), initialVelocityList.at(i));
+
+        newMass.update_prevPosition();
+        massList.push_back(newMass);
+    }
+
+    for (i = 0; i < numberOfObjects; ++i) {
+        pathListX.at(i).push_back(initialPositionList.at(i).at(0));
+        pathListY.at(i).push_back(initialPositionList.at(i).at(1));
+        pathListZ.at(i).push_back(initialPositionList.at(i).at(2));
+    }
+
+    double n = 0;
+    timeElapsed = 0;
+    iterDuration = .000001;
+    while (timeElapsed < simDuration) {
+        maxGravity = 0;
+
+        if (timeElapsed != 0) {
+            for (i = 0; i < numberOfObjects; ++i) {
+                if (massList.at(i).get_gravity() > maxGravity) {
+                    maxGravity = massList.at(i).get_gravity();
+                }
+            }
+        }
+
+        else {
+            maxGravity = 100;
+        }
+
+        for (k = 0; k < numberOfObjects; ++k) {
+            massList.at(k).update_prevPosition();
+            massList.at(k).reset_gravity();
+        }
+
+        if (timeElapsed - iterDuration <= n * 1000 < timeElapsed) {
+            for (k = 0; k < numberOfObjects; ++k) {
+                pathListX.at(k).push_back(massList.at(k).get_position().at(0));
+                pathListY.at(k).push_back(massList.at(k).get_position().at(1));
+                pathListZ.at(k).push_back(massList.at(k).get_position().at(2));
+            }
+
+            n = n + 1;
+        }
+
+        iterDuration = .0001 / sqrt(maxGravity);
+
+        for (j = 0; j < numberOfObjects; ++j) {
+            for (k = 0; k < numberOfObjects; ++k) {
+                if (k != j) {
+                    massList.at(j).update_gravity(massList.at(k));
+                }
+            }
+
+            massList.at(j).update_position(iterDuration);
+        }
+
+        timeElapsed = timeElapsed + iterDuration;
+    }
+
+    for (i = 0; i < numberOfObjects; ++i) {
+        outFileX.open("mass" + objectNameList.at(i) + "X.csv");
+        for (j = 0; j < pathListX.at(i).size(); ++j) {
+            outFileX << std::setprecision(7) << pathListX.at(i).at(j) << endl;
+        }
+        outFileX.close();
+
+        outFileY.open("mass" + objectNameList.at(i) + "Y.csv");
+        for (j = 0; j < pathListY.at(i).size(); ++j) {
+            outFileY << std::setprecision(7) << pathListY.at(i).at(j) << endl;
+        }
+        outFileY.close();
+
+        //outFileZ.at(i).open("mass" + objectNameList.at(i) + "Z.csv");
+        //for (j = 0; j < pathListZ.at(i).size(); ++j) {
+            //outFileZ.at(i) << pathListZ.at(i).at(j) << endl;
+        //}
+        //outFileZ.at(i).close();
+    }
+}
